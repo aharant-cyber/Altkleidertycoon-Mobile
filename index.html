@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="de" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ReSales - Mobile Tycoon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVxBnQhl-R7i8kXgVFe_nfKm0xEg5tFFc",
+            databaseURL: "https://bestenlisteresales-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.saveGlobalScore = async function(playerName, netWorth, daysMode) {
+            try {
+                const scoresRef = ref(db, 'scores');
+                await push(scoresRef, {
+                    name: playerName,
+                    score: Math.round(netWorth),
+                    days: daysMode,
+                    date: new Date().toLocaleDateString('de-DE')
+                });
+                window.loadGlobalScores();
+            } catch(e) {
+                console.error("Score Fehler:", e);
+            }
+        };
+
+        window.loadGlobalScores = async function() {
+            try {
+                const scoresRef = ref(db, 'scores');
+                const snapshot = await get(scoresRef);
+                const listEl = document.getElementById('highscore-list');
+                const fullBody = document.getElementById('full-leaderboard-body');
+                
+                if (!listEl || !fullBody) return;
+
+                if (snapshot.exists()) {
+                    let scores = [];
+                    snapshot.forEach((childSnapshot) => {
+                        scores.push(childSnapshot.val());
+                    });
+                    scores.sort((a, b) => b.score - a.score);
+
+                    listEl.innerHTML = scores.slice(0, 5).map((s, i) => `
+                        <div class="flex justify-between border-b border-termBorder/40 py-1 text-[11px]">
+                            <span class="truncate max-w-[140px]">#${i+1} <strong>${escapeHtml(s.name || 'Anonym')}</strong> (${s.days}T)</span>
+                            <span class="font-bold text-termGreen">${s.score.toLocaleString('de-DE')} €</span>
+                        </div>
+                    `).join('');
+
+                    fullBody.innerHTML = scores.slice(0, 10).map((s, i) => `
+                        <tr class="hover:bg-termBorder/20 border-b border-termBorder/30">
+                            <td class="p-1.5 font-bold ${i===0?'text-termYellow':i===1?'text-slate-200':i===2?'text-amber-600':'text-slate-400'}">#${i+1}</td>
+                            <td class="p-1.5 font-semibold text-resalesLightBlue truncate max-w-[90px]">${escapeHtml(s.name || 'Anonym')}</td>
+                            <td class="p-1.5 text-right font-mono font-bold text-termGreen">${s.score.toLocaleString('de-DE')} €</td>
+                            <td class="p-1.5 text-center text-slate-400">${s.days}T</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = '<div class="italic text-slate-500 text-[11px]">Keine Online-Scores vorhanden.</div>';
+                    fullBody.innerHTML = '<tr><td colspan="4" class="p-3 text-center italic text-slate-500">Keine Einträge.</td></tr>';
+                }
+            } catch(e) {
+                console.error("Fehler beim Laden:", e);
+            }
+        };
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if(window.loadGlobalScores) window.loadGlobalScores();
+        });
+    </script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        resalesBlue: '#0072bc',
+                        resalesLightBlue: '#00a0e9',
+                        termGreen: '#00ff66',
+                        termCyan: '#00f3ff',
+                        termPink: '#ff0055',
+                        termYellow: '#ffcc00',
+                        termBg: '#080c14',
+                        termCard: '#0f172a',
+                        termBorder: '#1e293b'
+                    },
+                    fontFamily: {
+                        mono: ['"Fira Code"', 'monospace'],
+                        pixel: ['"Press Start 2P"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body {
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #080c14;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+        }
+        .scanline {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.25) 50%,
+                rgba(0, 0, 0, 0.25)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+        .glow-blue { text-shadow: 0 0 8px rgba(0, 160, 233, 0.6); }
+        .glow-green { text-shadow: 0 0 6px rgba(0, 255, 102, 0.5); }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #080c14; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+    </style>
+</head>
+<body class="flex flex-col h-full bg-termBg text-slate-200 select-none relative overflow-hidden">
+    <div class="scanline fixed inset-0 z-50 pointer-events-none opacity-30"></div>
+
+    <!-- Mobile Header -->
+    <header class="border-b border-termBorder bg-termCard/95 px-2 py-1.5 flex-none z-40">
+        <div class="flex items-center justify-between gap-1 mb-1">
+            <div class="flex items-center gap-1.5">
+                <div class="w-6 h-6 rounded-full bg-resalesBlue flex items-center justify-center p-0.5 border border-resalesLightBlue">
+                    <svg viewBox="0 0 100 100" class="w-full h-full text-white fill-current">
+                        <circle cx="50" cy="50" r="48" fill="#0072bc" />
+                        <text x="50" y="58" font-family="Arial" font-weight="bold" font-size="22" text-anchor="middle" fill="#ffffff">RS</text>
+                    </svg>
+                </div>
+                <span class="font-pixel text-[10px] text-resalesLightBlue glow-blue">RESALES</span>
+                <span id="player-display-name" class="text-[9px] bg-resalesBlue/30 text-resalesLightBlue border border-resalesLightBlue/30 px-1 rounded truncate max-w-[70px]">
+                    Händler
+                </span>
+            </div>
+
+            <div class="flex items-center gap-1">
+                <button onclick="openLeaderboardModal()" class="px-1.5 py-0.5 rounded border border-termYellow/50 bg-termBg text-termYellow font-bold text-[10px]">
+                    🏆
+                </button>
+                <button id="sound-toggle-btn" onclick="toggleSound()" class="px-1.5 py-0.5 rounded border border-termBorder bg-termBg text-[10px]">
+                    🔊
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Bar -->
+        <div class="grid grid-cols-5 gap-1 text-[10px] text-center font-mono">
+            <div class="bg-termBg border border-termBorder rounded py-0.5 px-0.5">
+                <div class="text-[8px] text-slate-400">TAG</div>
+                <div id="stat-day" class="text-termYellow font-bold">1/30</div>
+            </div>
+            <div class="bg-termBg border border-termBorder rounded py-0.5 px-0.5">
+                <div class="text-[8px] text-slate-400">ORT</div>
+                <div id="stat-location" class="text-resalesLightBlue font-bold truncate">Berlin</div>
+            </div>
+            <div class="bg-termBg border border-termBorder rounded py-0.5 px-0.5">
+                <div class="text-[8px] text-slate-400">BAR</div>
+                <div id="stat-cash" class="text-termGreen font-bold truncate">2.000€</div>
+            </div>
+            <div class="bg-termBg border border-termBorder rounded py-0.5 px-0.5">
+                <div class="text-[8px] text-slate-400">BANK</div>
+                <div id="stat-bank" class="text-sky-400 font-bold truncate">0€</div>
+            </div>
+            <div class="bg-termBg border border-termBorder rounded py-0.5 px-0.5">
+                <div class="text-[8px] text-slate-400">HAI</div>
+                <div id="stat-debt" class="text-termPink font-bold truncate">1.500€</div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mt-1 flex items-center gap-2 text-[9px] text-slate-400">
+            <span id="vehicle-name" class="truncate max-w-[80px] text-termYellow">Plastiktüte</span>
+            <div class="flex-grow bg-termBg rounded-full h-2 border border-termBorder overflow-hidden">
+                <div id="capacity-bar" class="bg-termGreen h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <span class="font-mono"><strong id="capacity-used" class="text-slate-200">0</strong>/<strong id="capacity-max" class="text-slate-200">100</strong></span>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Content (Fills Remaining Screen Area) -->
+    <main class="flex-grow overflow-hidden relative p-2 flex flex-col">
+        
+        <!-- TAB 1: BÖRSE (MARKT) -->
+        <div id="tab-market" class="h-full flex flex-col bg-termCard border border-termBorder rounded-lg p-2 overflow-hidden">
+            <div class="flex justify-between items-center mb-1 flex-none">
+                <span class="text-[11px] font-pixel text-termGreen flex items-center gap-1">
+                    🏷️ <span id="market-city-name" class="uppercase">BERLIN</span>
+                </span>
+                <span class="text-[9px] text-slate-400">Kurse pro Stück</span>
+            </div>
+
+            <div class="flex-grow overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="sticky top-0 bg-termCard border-b border-termBorder text-[10px] text-slate-400">
+                        <tr>
+                            <th class="py-1">Ware</th>
+                            <th class="py-1 text-right">Kurs</th>
+                            <th class="py-1 text-right">Eigentum</th>
+                            <th class="py-1 text-center">Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="market-table-body" class="divide-y divide-termBorder/40"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: REISEN & LOGBUCH IN DER MITTE -->
+        <div id="tab-travel" class="h-full flex flex-col bg-termCard border border-termBorder rounded-lg p-2 overflow-hidden hidden space-y-2">
+            <div class="flex justify-between items-center flex-none">
+                <h2 class="text-[11px] font-pixel text-resalesLightBlue">✈️ REISEZIELE</h2>
+                <span class="text-[9px] text-slate-400">1 Ziel = +1 Tag</span>
+            </div>
+
+            <!-- Städteliste als kompakte Buttons -->
+            <div id="cities-grid" class="grid grid-cols-3 gap-1.5 flex-none"></div>
+
+            <!-- PROMINENTES LOGBUCH IN DER MITTE BEIM REISEN -->
+            <div class="flex-grow bg-termBg border border-termBorder rounded p-2 flex flex-col overflow-hidden">
+                <div class="text-[10px] font-pixel text-termYellow mb-1 flex justify-between items-center flex-none">
+                    <span>📜 EREIGNIS-LOGBUCH</span>
+                    <span class="text-[8px] text-slate-500 font-sans">Ereignisse beim Reisen</span>
+                </div>
+                <div id="log-box-travel" class="flex-grow overflow-y-auto text-[11px] space-y-1.5 font-mono pr-1">
+                    <div class="text-slate-500 italic">Wähle eine Stadt oben, um weiterzureisen. Neue Nachrichten erscheinen hier!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: BANK & KREDITHAI -->
+        <div id="tab-bank" class="h-full flex flex-col bg-termCard border border-termBorder rounded-lg p-2 overflow-y-auto hidden space-y-2 text-xs">
+            <!-- Sparkasse -->
+            <div class="bg-termBg border border-termBorder p-2 rounded flex flex-col gap-1">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-sky-400">🏛️ Sparkasse (2% Zinsen)</span>
+                    <span id="bank-val" class="font-bold text-sky-300">0 €</span>
+                </div>
+                <div class="flex gap-1.5 items-center">
+                    <input id="bank-input" type="number" min="1" value="100" class="w-1/2 bg-termCard border border-termBorder rounded px-2 py-1 text-xs text-slate-100">
+                    <button onclick="setBankQuick('all')" class="px-2 py-1 bg-termCard border border-termBorder text-[9px] text-slate-400 rounded">MAX</button>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+                    <button onclick="bankAction('deposit')" class="py-1.5 bg-sky-900/40 border border-sky-600 text-sky-300 font-bold rounded text-[11px]">Einzahlen</button>
+                    <button onclick="bankAction('withdraw')" class="py-1.5 bg-termBg border border-termBorder text-slate-300 font-bold rounded text-[11px]">Abheben</button>
+                </div>
+            </div>
+
+            <!-- Kredithai -->
+            <div class="bg-termBg border border-termBorder p-2 rounded flex flex-col gap-1">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-termPink">🦈 Kredithai Eugen (10%)</span>
+                    <span id="debt-val" class="font-bold text-termPink">1.500 €</span>
+                </div>
+                <div class="flex gap-1.5 items-center">
+                    <input id="debt-input" type="number" min="1" value="500" class="w-1/2 bg-termCard border border-termBorder rounded px-2 py-1 text-xs text-slate-100">
+                    <button onclick="setDebtMax()" class="px-2 py-1 bg-termCard border border-termBorder text-[9px] text-slate-400 rounded">MAX</button>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+                    <button onclick="debtAction('pay')" class="py-1.5 bg-termPink/25 border border-termPink text-termPink font-bold rounded text-[11px]">Tilgen</button>
+                    <button onclick="debtAction('take')" class="py-1.5 bg-termBg border border-termBorder text-slate-300 font-bold rounded text-[11px]">Leihen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: FUHRPARK -->
+        <div id="tab-upgrades" class="h-full flex flex-col bg-termCard border border-termBorder rounded-lg p-2 overflow-hidden hidden">
+            <h2 class="text-[11px] font-pixel text-termYellow mb-2 flex-none">🚚 FUHRPARK & LAGER</h2>
+            <div id="upgrades-list" class="flex-grow overflow-y-auto space-y-1.5 pr-1"></div>
+        </div>
+
+        <!-- TAB 5: SEPARATES LOGBUCH -->
+        <div id="tab-log" class="h-full flex flex-col bg-termCard border border-termBorder rounded-lg p-2 overflow-hidden hidden">
+            <h2 class="text-[11px] font-pixel text-slate-300 mb-2 flex-none">📜 GESAMTES LOGBUCH</h2>
+            <div id="log-box-full" class="flex-grow overflow-y-auto bg-termBg border border-termBorder rounded p-2 text-[11px] space-y-1.5 font-mono"></div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="border-t border-termBorder bg-termCard flex-none grid grid-cols-5 gap-0.5 p-1 text-[10px]">
+        <button id="nav-market" onclick="switchTab('market')" class="py-2 rounded bg-resalesBlue/30 text-resalesLightBlue border border-resalesLightBlue font-bold flex flex-col items-center justify-center">
+            <span>🛍️</span>
+            <span class="text-[9px]">Börse</span>
+        </button>
+        <button id="nav-travel" onclick="switchTab('travel')" class="py-2 rounded bg-termBg text-slate-400 border border-termBorder flex flex-col items-center justify-center">
+            <span>✈️</span>
+            <span class="text-[9px]">Reisen</span>
+        </button>
+        <button id="nav-bank" onclick="switchTab('bank')" class="py-2 rounded bg-termBg text-slate-400 border border-termBorder flex flex-col items-center justify-center">
+            <span>🏦</span>
+            <span class="text-[9px]">Bank</span>
+        </button>
+        <button id="nav-upgrades" onclick="switchTab('upgrades')" class="py-2 rounded bg-termBg text-slate-400 border border-termBorder flex flex-col items-center justify-center">
+            <span>🚚</span>
+            <span class="text-[9px]">Fuhrpark</span>
+        </button>
+        <button id="nav-log" onclick="switchTab('log')" class="py-2 rounded bg-termBg text-slate-400 border border-termBorder flex flex-col items-center justify-center">
+            <span>📜</span>
+            <span class="text-[9px]">Log</span>
+        </button>
+    </nav>
+
+    <!-- Trade Modal -->
+    <div id="trade-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-termCard border border-termBorder w-full max-w-xs rounded-lg p-4 shadow-2xl relative space-y-2">
+            <button onclick="closeTradeModal()" class="absolute top-2 right-2 text-slate-400 text-base">✕</button>
+            <h3 id="modal-title" class="text-xs font-pixel text-resalesLightBlue">WARE KAUFEN</h3>
+            <p id="modal-subtitle" class="text-xs text-slate-300 font-semibold">Altkleider-Posten</p>
+
+            <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between border-b border-termBorder/50 pb-1">
+                    <span class="text-slate-400">Preis:</span>
+                    <span id="modal-price" class="font-bold text-termGreen">10 €</span>
+                </div>
+                <div class="flex justify-between border-b border-termBorder/50 pb-1">
+                    <span class="text-slate-400">Freier Platz:</span>
+                    <span id="modal-space" class="font-bold text-slate-200">100 Stk.</span>
+                </div>
+                <div class="flex justify-between border-b border-termBorder/50 pb-1">
+                    <span class="text-slate-400">Bargeld:</span>
+                    <span id="modal-cash" class="font-bold text-slate-200">2.000 €</span>
+                </div>
+                <div class="pt-1">
+                    <div class="flex gap-1.5 items-center">
+                        <input id="modal-amount-input" type="number" min="1" value="1" oninput="updateModalTotal()"
+                            class="bg-termBg border border-termBorder rounded px-2 py-1.5 text-slate-100 w-full text-xs">
+                        <button onclick="setModalMax()" class="bg-termBg border border-termBorder px-2.5 py-1.5 rounded text-xs font-bold text-termYellow">MAX</button>
+                    </div>
+                </div>
+                <div class="flex justify-between text-sm font-bold pt-1 border-t border-termBorder">
+                    <span>Gesamt:</span>
+                    <span id="modal-total" class="text-termGreen">10 €</span>
+                </div>
+                <button id="modal-action-btn" onclick="executeTrade()" class="w-full py-2.5 bg-termGreen hover:bg-emerald-400 text-slate-950 font-bold rounded text-xs transition">BESTÄTIGEN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-termCard border border-termYellow/50 w-full max-w-xs rounded-lg p-4 relative shadow-2xl space-y-3">
+            <button onclick="closeLeaderboardModal()" class="absolute top-2 right-2 text-slate-400 text-base">✕</button>
+            <div class="flex items-center gap-2 border-b border-termBorder pb-2">
+                <span class="text-xl">🏆</span>
+                <div>
+                    <h2 class="text-xs font-pixel text-termYellow">BESTENLISTE</h2>
+                    <p class="text-[10px] text-slate-400">Globale Top-Händler</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-52 overflow-y-auto border border-termBorder rounded bg-termBg">
+                <table class="w-full text-left text-[11px]">
+                    <thead class="bg-termCard sticky top-0 border-b border-termBorder text-slate-400">
+                        <tr>
+                            <th class="p-1">#</th>
+                            <th class="p-1">Name</th>
+                            <th class="p-1 text-right">Wert</th>
+                            <th class="p-1 text-center">Tage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="full-leaderboard-body" class="divide-y divide-termBorder/40 text-slate-300"></tbody>
+                </table>
+            </div>
+            <button onclick="closeLeaderboardModal()" class="w-full py-1.5 bg-termBg border border-termBorder text-xs rounded text-slate-200">Schließen</button>
+        </div>
+    </div>
+
+    <!-- Start / GameOver Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-3">
+        <div class="bg-termCard border border-resalesBlue/40 w-full max-w-xs rounded-lg p-4 text-center space-y-3 shadow-2xl relative">
+            <div class="flex justify-center">
+                <div class="w-14 h-14 rounded-full bg-resalesBlue flex items-center justify-center p-1 border-2 border-resalesLightBlue">
+                    <svg viewBox="0 0 100 100" class="w-full h-full text-white fill-current">
+                        <circle cx="50" cy="50" r="48" fill="#0072bc" />
+                        <text x="50" y="58" font-family="Arial" font-weight="bold" font-size="22" text-anchor="middle" fill="#ffffff">RS</text>
+                    </svg>
+                </div>
+            </div>
+
+            <h2 id="start-title" class="text-xs font-pixel text-resalesLightBlue glow-blue">RESALES MOBILE</h2>
+            <p id="start-desc" class="text-[11px] text-slate-300 leading-tight">
+                Der Altkleidertycoon unterwegs. Kaufe günstig ein und verkaufe mit Gewinn!
+            </p>
+
+            <div class="bg-termBg border border-termBorder p-2 rounded text-left space-y-2 text-xs">
+                <div>
+                    <label class="text-[10px] text-slate-400 block font-bold mb-0.5">SPIELERNAME:</label>
+                    <input id="player-name-input" type="text" maxlength="15" value="Trader"
+                        class="w-full bg-termCard border border-termBorder rounded px-2 py-1 text-xs text-resalesLightBlue font-bold">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block font-bold mb-0.5">SPIELDAUER:</label>
+                    <div class="grid grid-cols-3 gap-1 text-xs">
+                        <button onclick="selectDays(20)" id="btn-days-20" class="py-1 border border-termBorder rounded bg-termBg text-slate-300">20 T</button>
+                        <button onclick="selectDays(30)" id="btn-days-30" class="py-1 border border-resalesLightBlue rounded bg-resalesBlue/30 text-resalesLightBlue font-bold">30 T</button>
+                        <button onclick="selectDays(50)" id="btn-days-50" class="py-1 border border-termBorder rounded bg-termBg text-slate-300">50 T</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="game-over-stats" class="hidden bg-termBg border border-termBorder p-2 rounded text-[11px] text-left space-y-0.5">
+                <div class="flex justify-between font-bold text-termYellow"><span>Nettovermögen:</span><span id="final-networth" class="text-termGreen">0 €</span></div>
+                <div class="flex justify-between"><span>Bargeld:</span><span id="final-cash">0 €</span></div>
+                <div class="flex justify-between"><span>Bank:</span><span id="final-bank">0 €</span></div>
+                <div class="flex justify-between"><span>Warenlager:</span><span id="final-inventory" class="text-resalesLightBlue">0 €</span></div>
+                <div class="flex justify-between text-termPink"><span>Schulden:</span><span id="final-debt">0 €</span></div>
+            </div>
+
+            <div class="bg-termBg border border-termBorder p-2 rounded text-left space-y-1">
+                <div class="flex justify-between items-center text-[10px]">
+                    <span class="font-bold text-termYellow">🏆 TOP 5</span>
+                    <button onclick="openLeaderboardModal()" class="text-resalesLightBlue underline">Alle</button>
+                </div>
+                <div id="highscore-list" class="text-[10px] space-y-0.5 text-slate-400 max-h-20 overflow-y-auto">
+                    <div class="italic text-slate-500">Lade...</div>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-2.5 bg-resalesBlue hover:bg-resalesLightBlue text-white font-bold rounded font-pixel text-xs transition">
+                SPIEL STARTEN
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'click') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.04);
+                gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.04);
+                osc.start(now); osc.stop(now + 0.04);
+            } else if (type === 'buy') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+                gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
+            } else if (type === 'sell') {
+                osc.type = 'square'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'event') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.setValueAtTime(400, now + 0.06);
+                gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'warn') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.setValueAtTime(100, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+                osc.start(now); osc.stop(now + 0.18);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('sound-toggle-btn');
+            btn.innerText = soundEnabled ? '🔊' : '🔇';
+            if (soundEnabled) playSound('click');
+        }
+
+        const GOODS = [
+            { id: 'ballonseide', name: '90er Vintage', minPrice: 8, maxPrice: 35, icon: '🧥' },
+            { id: 'y2k_denim', name: 'Denim Jeans', minPrice: 25, maxPrice: 90, icon: '👖' },
+            { id: 'designer_rests', name: 'Designer-Reste', minPrice: 80, maxPrice: 300, icon: '👔' },
+            { id: 'lumpen', name: 'Putzwolle', minPrice: 3, maxPrice: 15, icon: '🧶' },
+            { id: 'sneaker', name: 'Sneaker', minPrice: 120, maxPrice: 700, icon: '👟' },
+            { id: 'festival_hoodies', name: 'Sortierballen', minPrice: 40, maxPrice: 180, icon: '📦' }
+        ];
+
+        const CITIES = ['Berlin', 'Hamburg', 'München', 'Köln', 'Frankfurt', 'Leipzig'];
+
+        const UPGRADES = [
+            { name: 'Plastiktüte', capacity: 100, price: 0 },
+            { name: 'Koffer', capacity: 300, price: 800 },
+            { name: 'Kombi-Kofferraum', capacity: 800, price: 3500 },
+            { name: 'Kleintransporter', capacity: 2000, price: 12000 },
+            { name: 'Großlager-LKW', capacity: 5000, price: 40000 }
+        ];
+
+        let gameState = {
+            playerName: 'Trader',
+            day: 1,
+            maxDays: 30,
+            location: 'Berlin',
+            cash: 2000,
+            bank: 0,
+            debt: 1500,
+            vehicleIndex: 0,
+            inventory: {},
+            prices: {},
+            activeTrade: null
+        };
+
+        function selectDays(days) {
+            gameState.maxDays = days;
+            [20, 30, 50].forEach(d => {
+                const btn = document.getElementById(`btn-days-${d}`);
+                if (d === days) {
+                    btn.className = "py-1 border border-resalesLightBlue rounded bg-resalesBlue/30 text-resalesLightBlue font-bold";
+                } else {
+                    btn.className = "py-1 border border-termBorder rounded bg-termBg text-slate-300";
+                }
+            });
+            playSound('click');
+        }
+
+        function startGame() {
+            playSound('click');
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            gameState.playerName = nameInput || 'Trader';
+            document.getElementById('player-display-name').innerText = gameState.playerName;
+
+            gameState.day = 1;
+            gameState.location = 'Berlin';
+            gameState.cash = 2000;
+            gameState.bank = 0;
+            gameState.debt = 1500;
+            gameState.vehicleIndex = 0;
+            gameState.inventory = {};
+            
+            GOODS.forEach(g => gameState.inventory[g.id] = 0);
+
+            generatePrices();
+            document.getElementById('game-over-modal').classList.add('hidden');
+            document.getElementById('log-box-travel').innerHTML = '';
+            document.getElementById('log-box-full').innerHTML = '';
+            
+            addLog(`🚀 **Willkommen, ${gameState.playerName}!** ReSales gestartet in Berlin.`);
+            updateUI();
+        }
+
+        function generatePrices() {
+            gameState.prices = {};
+            GOODS.forEach(good => {
+                let base = Math.floor(Math.random() * (good.maxPrice - good.minPrice + 1)) + good.minPrice;
+                gameState.prices[good.id] = base;
+            });
+        }
+
+        function getCapacityUsed() {
+            return Object.values(gameState.inventory).reduce((a, b) => a + b, 0);
+        }
+
+        function getMaxCapacity() {
+            return UPGRADES[gameState.vehicleIndex].capacity;
+        }
+
+        function calculateInventoryValue() {
+            let total = 0;
+            GOODS.forEach(g => {
+                const qty = gameState.inventory[g.id] || 0;
+                const price = gameState.prices[g.id] || 0;
+                total += qty * price;
+            });
+            return total;
+        }
+
+        function switchTab(tab) {
+            playSound('click');
+            ['market', 'travel', 'bank', 'upgrades', 'log'].forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                const panel = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.className = "py-2 rounded bg-resalesBlue/30 text-resalesLightBlue border border-resalesLightBlue font-bold flex flex-col items-center justify-center";
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.className = "py-2 rounded bg-termBg text-slate-400 border border-termBorder flex flex-col items-center justify-center";
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('stat-day').innerText = `${gameState.day}/${gameState.maxDays}`;
+            document.getElementById('stat-location').innerText = gameState.location;
+            document.getElementById('stat-cash').innerText = `${gameState.cash.toLocaleString('de-DE')}€`;
+            document.getElementById('stat-bank').innerText = `${gameState.bank.toLocaleString('de-DE')}€`;
+            document.getElementById('stat-debt').innerText = `${gameState.debt.toLocaleString('de-DE')}€`;
+
+            const vehicle = UPGRADES[gameState.vehicleIndex];
+            const used = getCapacityUsed();
+            const max = vehicle.capacity;
+            const pct = Math.min(100, Math.round((used / max) * 100));
+
+            document.getElementById('vehicle-name').innerText = vehicle.name;
+            document.getElementById('capacity-used').innerText = used;
+            document.getElementById('capacity-max').innerText = max;
+            
+            const bar = document.getElementById('capacity-bar');
+            bar.style.width = `${pct}%`;
+            bar.className = pct >= 90 ? "bg-termPink h-full transition-all duration-300" : "bg-termGreen h-full transition-all duration-300";
+
+            renderMarket();
+            renderTravel();
+            renderBank();
+            renderUpgrades();
+        }
+
+        function renderMarket() {
+            document.getElementById('market-city-name').innerText = gameState.location;
+            const tbody = document.getElementById('market-table-body');
+            tbody.innerHTML = '';
+
+            GOODS.forEach(good => {
+                const price = gameState.prices[good.id];
+                const owned = gameState.inventory[good.id] || 0;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-termBg/50 transition border-b border-termBorder/30 text-xs";
+                tr.innerHTML = `
+                    <td class="py-2 font-semibold flex items-center gap-1 truncate max-w-[95px]">
+                        <span>${good.icon}</span>
+                        <span class="truncate">${good.name}</span>
+                    </td>
+                    <td class="py-2 text-right font-mono font-bold ${price < (good.minPrice + good.maxPrice)/2.5 ? 'text-termGreen' : price > (good.minPrice + good.maxPrice)*0.7 ? 'text-termPink' : 'text-slate-200'}">
+                        ${price.toLocaleString('de-DE')}€
+                    </td>
+                    <td class="py-2 text-right font-mono text-slate-300">${owned}</td>
+                    <td class="py-2 text-center space-x-1">
+                        <button onclick="openTradeModal('${good.id}', 'buy')" class="px-2 py-1 bg-termGreen/25 border border-termGreen text-termGreen text-[10px] rounded font-bold">Kauf</button>
+                        <button onclick="openTradeModal('${good.id}', 'sell')" ${owned === 0 ? 'disabled class="opacity-20 px-2 py-1 bg-slate-800 text-slate-500 text-[10px] rounded"' : 'class="px-2 py-1 bg-termPink/25 border border-termPink text-termPink text-[10px] rounded font-bold"'}>Verk</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTravel() {
+            const grid = document.getElementById('cities-grid');
+            grid.innerHTML = '';
+
+            CITIES.forEach(city => {
+                const isCurrent = city === gameState.location;
+                const btn = document.createElement('button');
+                btn.disabled = isCurrent;
+                btn.className = isCurrent 
+                    ? "p-2 rounded border border-resalesLightBlue/40 bg-resalesBlue/20 text-slate-400 text-left opacity-50 cursor-default text-[11px]"
+                    : "p-2 rounded border border-termBorder bg-termBg hover:border-resalesLightBlue text-left text-[11px] font-bold text-slate-200 active:scale-95 transition";
+
+                btn.onclick = () => travelTo(city);
+                btn.innerHTML = `
+                    <div class="truncate">📍 ${city}</div>
+                    <div class="text-[9px] text-slate-500 font-normal">${isCurrent ? 'Hier' : 'Reisen ✈️'}</div>
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        function renderBank() {
+            document.getElementById('bank-val').innerText = `${gameState.bank.toLocaleString('de-DE')} €`;
+            document.getElementById('debt-val').innerText = `${gameState.debt.toLocaleString('de-DE')} €`;
+        }
+
+        function setBankQuick(mode) {
+            playSound('click');
+            const input = document.getElementById('bank-input');
+            if (mode === 'all') input.value = Math.max(1, gameState.cash);
+        }
+
+        function bankAction(type) {
+            playSound('click');
+            const amount = parseInt(document.getElementById('bank-input').value) || 0;
+            if (amount <= 0) { playSound('warn'); return; }
+
+            if (type === 'deposit') {
+                if (amount > gameState.cash) { playSound('warn'); return; }
+                gameState.cash -= amount;
+                gameState.bank += amount;
+                addLog(`🏛️ Bank: **${amount.toLocaleString('de-DE')} €** eingezahlt.`);
+            } else {
+                if (amount > gameState.bank) { playSound('warn'); return; }
+                gameState.bank -= amount;
+                gameState.cash += amount;
+                addLog(`🏛️ Bank: **${amount.toLocaleString('de-DE')} €** abgehoben.`);
+            }
+            updateUI();
+        }
+
+        function debtAction(type) {
+            playSound('click');
+            const amount = parseInt(document.getElementById('debt-input').value) || 0;
+            if (amount <= 0) { playSound('warn'); return; }
+
+            if (type === 'pay') {
+                if (amount > gameState.cash || amount > gameState.debt) { playSound('warn'); return; }
+                gameState.cash -= amount;
+                gameState.debt -= amount;
+                addLog(`🦈 Kredithai: **${amount.toLocaleString('de-DE')} €** Schulden getilgt.`);
+            } else {
+                gameState.cash += amount;
+                gameState.debt += amount;
+                addLog(`🦈 Kredithai: **${amount.toLocaleString('de-DE')} €** Kredit aufgenommen.`);
+            }
+            updateUI();
+        }
+
+        function setDebtMax() {
+            playSound('click');
+            document.getElementById('debt-input').value = Math.min(gameState.cash, gameState.debt);
+        }
+
+        function renderUpgrades() {
+            const list = document.getElementById('upgrades-list');
+            list.innerHTML = '';
+
+            UPGRADES.forEach((upg, idx) => {
+                const isOwned = gameState.vehicleIndex >= idx;
+                const isNext = gameState.vehicleIndex + 1 === idx;
+
+                const div = document.createElement('div');
+                div.className = `p-2 rounded border flex justify-between items-center ${isOwned ? 'border-termGreen/40 bg-termGreen/5' : isNext ? 'border-termBorder bg-termBg' : 'border-termBorder/40 opacity-40 bg-termBg'}`;
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-xs text-slate-200">${upg.name}</div>
+                        <div class="text-[10px] text-slate-400">Platz: <span class="text-termYellow">${upg.capacity}</span></div>
+                    </div>
+                    <div>
+                        ${isOwned 
+                            ? '<span class="text-[10px] text-termGreen font-bold">In Besitz</span>' 
+                            : `<button onclick="buyUpgrade(${idx})" ${!isNext ? 'disabled' : ''} class="px-2.5 py-1 ${isNext ? 'bg-termYellow text-slate-950 font-bold' : 'bg-slate-800 text-slate-500'} text-[10px] rounded">
+                                ${upg.price.toLocaleString('de-DE')} €
+                               </button>`
+                        }
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openTradeModal(itemId, mode) {
+            playSound('click');
+            const good = GOODS.find(g => g.id === itemId);
+            const price = gameState.prices[itemId];
+            const owned = gameState.inventory[itemId] || 0;
+            const spaceLeft = getMaxCapacity() - getCapacityUsed();
+
+            gameState.activeTrade = { item: good, mode, price, owned, spaceLeft };
+
+            document.getElementById('modal-title').innerText = mode === 'buy' ? 'WARE KAUFEN' : 'WARE VERKAUFEN';
+            document.getElementById('modal-title').className = mode === 'buy' ? 'text-xs font-pixel text-termGreen' : 'text-xs font-pixel text-termPink';
+            document.getElementById('modal-subtitle').innerText = `${good.icon} ${good.name}`;
+            document.getElementById('modal-price').innerText = `${price.toLocaleString('de-DE')} €`;
+            document.getElementById('modal-space').innerText = `${spaceLeft} Stk.`;
+            document.getElementById('modal-cash').innerText = `${gameState.cash.toLocaleString('de-DE')} €`;
+
+            const btn = document.getElementById('modal-action-btn');
+            btn.innerText = mode === 'buy' ? 'KAUFEN' : 'VERKAUFEN';
+            btn.className = mode === 'buy' 
+                ? 'w-full py-2.5 bg-termGreen text-slate-950 font-bold rounded text-xs'
+                : 'w-full py-2.5 bg-termPink text-white font-bold rounded text-xs';
+
+            document.getElementById('modal-amount-input').value = 1;
+            updateModalTotal();
+            document.getElementById('trade-modal').classList.remove('hidden');
+        }
+
+        function closeTradeModal() {
+            playSound('click');
+            document.getElementById('trade-modal').classList.add('hidden');
+        }
+
+        function setModalMax() {
+            playSound('click');
+            const t = gameState.activeTrade;
+            if (!t) return;
+            let max = t.mode === 'buy' ? Math.min(Math.floor(gameState.cash / t.price), t.spaceLeft) : t.owned;
+            document.getElementById('modal-amount-input').value = Math.max(1, max);
+            updateModalTotal();
+        }
+
+        function updateModalTotal() {
+            const amount = parseInt(document.getElementById('modal-amount-input').value) || 0;
+            const t = gameState.activeTrade;
+            if (!t) return;
+            document.getElementById('modal-total').innerText = `${(amount * t.price).toLocaleString('de-DE')} €`;
+        }
+
+        function executeTrade() {
+            const amount = parseInt(document.getElementById('modal-amount-input').value) || 0;
+            const t = gameState.activeTrade;
+            if (!t || amount <= 0) return;
+
+            const total = amount * t.price;
+            if (t.mode === 'buy') {
+                if (total > gameState.cash || amount > t.spaceLeft) { playSound('warn'); return; }
+                gameState.cash -= total;
+                gameState.inventory[t.item.id] = (gameState.inventory[t.item.id] || 0) + amount;
+                playSound('buy');
+                addLog(`🛒 Gekauft: **${amount}x ${t.item.name}** für ${total.toLocaleString('de-DE')} €`);
+            } else {
+                if (amount > t.owned) { playSound('warn'); return; }
+                gameState.cash += total;
+                gameState.inventory[t.item.id] -= amount;
+                playSound('sell');
+                addLog(`💰 Verkauft: **${amount}x ${t.item.name}** für ${total.toLocaleString('de-DE')} €`);
+            }
+            closeTradeModal();
+            updateUI();
+        }
+
+        function travelTo(city) {
+            gameState.location = city;
+            gameState.day += 1;
+
+            if (gameState.debt > 0) gameState.debt += Math.round(gameState.debt * 0.10);
+            if (gameState.bank > 0) gameState.bank += Math.round(gameState.bank * 0.02);
+
+            generatePrices();
+            triggerRandomEvent();
+
+            if (gameState.day > gameState.maxDays) {
+                endGame();
+                return;
+            }
+
+            playSound('click');
+            updateUI();
+        }
+
+        function triggerRandomEvent() {
+            const rand = Math.random();
+            if (rand < 0.15) {
+                const item = GOODS[Math.floor(Math.random() * GOODS.length)];
+                gameState.prices[item.id] *= 3;
+                playSound('event');
+                addLog(`🔥 **VINTAGE-HYPE IN ${gameState.location.toUpperCase()}!** ${item.name} Kurse explodieren!`);
+            } else if (rand < 0.28) {
+                const item = GOODS[Math.floor(Math.random() * GOODS.length)];
+                gameState.prices[item.id] = Math.max(2, Math.floor(gameState.prices[item.id] * 0.25));
+                playSound('warn');
+                addLog(`📉 **MARKT-EINBRUCH!** Keiner kauft ${item.name}.`);
+            } else if (rand < 0.38) {
+                const totalItems = getCapacityUsed();
+                if (totalItems > 0) {
+                    const lost = Math.floor(totalItems * 0.25);
+                    let rem = lost;
+                    GOODS.forEach(g => {
+                        if (rem > 0 && gameState.inventory[g.id] > 0) {
+                            const sub = Math.min(gameState.inventory[g.id], rem);
+                            gameState.inventory[g.id] -= sub;
+                            rem -= sub;
+                        }
+                    });
+                    playSound('warn');
+                    addLog(`🚨 **ZOLLKONTROLLE!** ${lost} Teile beschlagnahmt!`);
+                }
+            } else if (rand < 0.48) {
+                if (gameState.cash > 300) {
+                    const stolen = Math.min(800, Math.floor(gameState.cash * 0.2));
+                    gameState.cash -= stolen;
+                    playSound('warn');
+                    addLog(`🦹 **DIEBSTAHL!** ${stolen} € aus der Kasse gestohlen!`);
+                }
+            } else if (rand < 0.58) {
+                const item = GOODS[2];
+                gameState.inventory[item.id] = (gameState.inventory[item.id] || 0) + 1;
+                playSound('event');
+                addLog(`✨ **SORTIER-BONUS!** Designer-Posten entdeckt!`);
+            }
+        }
+
+        function buyUpgrade(index) {
+            const upg = UPGRADES[index];
+            if (gameState.cash < upg.price) { playSound('warn'); return; }
+            playSound('buy');
+            gameState.cash -= upg.price;
+            gameState.vehicleIndex = index;
+            addLog(`🚚 Fuhrpark: Upgrade auf **${upg.name}**!`);
+            updateUI();
+        }
+
+        function addLog(msg) {
+            const logHTML = `<div class="text-slate-300 border-b border-termBorder/30 pb-0.5"><span class="text-termYellow">[T${gameState.day}]</span> ${msg}</div>`;
+            
+            const boxTravel = document.getElementById('log-box-travel');
+            const boxFull = document.getElementById('log-box-full');
+
+            boxTravel.innerHTML += logHTML;
+            boxFull.innerHTML += logHTML;
+
+            boxTravel.scrollTop = boxTravel.scrollHeight;
+            boxFull.scrollTop = boxFull.scrollHeight;
+        }
+
+        function calculateNetWorth() {
+            return gameState.cash + gameState.bank - gameState.debt + calculateInventoryValue();
+        }
+
+        function endGame() {
+            playSound('event');
+            const inventoryVal = calculateInventoryValue();
+            const netWorth = calculateNetWorth();
+
+            document.getElementById('start-title').innerText = 'SPIEL BEENDET!';
+            document.getElementById('start-desc').innerText = `Glückwunsch ${gameState.playerName}! Deine ${gameState.maxDays} Tage sind um. Bilanz:`;
+            
+            document.getElementById('game-over-stats').classList.remove('hidden');
+            document.getElementById('final-networth').innerText = `${netWorth.toLocaleString('de-DE')} €`;
+            document.getElementById('final-cash').innerText = `${gameState.cash.toLocaleString('de-DE')} €`;
+            document.getElementById('final-bank').innerText = `${gameState.bank.toLocaleString('de-DE')} €`;
+            document.getElementById('final-inventory').innerText = `${inventoryVal.toLocaleString('de-DE')} €`;
+            document.getElementById('final-debt').innerText = `${gameState.debt.toLocaleString('de-DE')} €`;
+
+            if (window.saveGlobalScore) {
+                window.saveGlobalScore(gameState.playerName, netWorth, gameState.maxDays);
+            }
+
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        function openLeaderboardModal() {
+            playSound('click');
+            if (window.loadGlobalScores) window.loadGlobalScores();
+            document.getElementById('leaderboard-modal').classList.remove('hidden');
+        }
+
+        function closeLeaderboardModal() {
+            playSound('click');
+            document.getElementById('leaderboard-modal').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            if (window.loadGlobalScores) window.loadGlobalScores();
+        };
+    </script>
+</body>
+</html>
